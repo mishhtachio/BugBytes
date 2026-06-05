@@ -47,7 +47,7 @@ BugBytes is a project management and issue-tracking platform designed for indie 
 * **Frontend**: React 18, Vite, Lucide React (Icons), CSS Variables (Cyberpunk Theme)
 * **Authentication**: Clerk (Google, GitHub, and passwordless email password)
 * **Backend**: Node.js, Express, Clerk Express Middleware (`@clerk/express`)
-* **Database**: Flat-file JSON registry (`server/db.json`)
+* **Database**: Flat-file JSON registry (`server/db.json`) (will update with PostgreSQL soon)
 
 ---
 
