@@ -1,6 +1,6 @@
 # 🐛 BugBytes
 
-BugBytes is a modern, high-contrast, cyberpunk-themed project management and issue-tracking platform designed for indie developers, hackathons, and agile teams. Built with a high-performance React/Vite frontend and a lightweight Express backend, BugBytes offers deep customization, git-workflow automation, and project-level collaboration.
+BugBytes is a project management and issue-tracking platform designed for indie developers, hackathons, and agile teams. Built with a high-performance React/Vite frontend and a lightweight Express backend, BugBytes offers deep customization, git-workflow automation, and project-level collaboration.
 
 ---
 
