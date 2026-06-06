@@ -234,6 +234,33 @@ export function Workspace() {
   // Loading indicator states
   const [loadingWorkspace, setLoadingWorkspace] = useState(false);
 
+  // Drag and Drop States & Handlers
+  const [dragOverCol, setDragOverCol] = useState<IssueStatus | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, issueId: string) => {
+    e.dataTransfer.setData("text/plain", issueId);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetStatus: IssueStatus) => {
+    e.preventDefault();
+    const issueId = e.dataTransfer.getData("text/plain");
+    if (!issueId) return;
+
+    const issue = issues.find(i => i.id === issueId);
+    if (!issue) return;
+
+    if (issue.status === targetStatus) return; // No change
+
+    // Enforce permission: assignee or project creator
+    const canMove = issue.assigneeId === user?.id || projCreatorId === user?.id;
+    if (!canMove) {
+      alert("Only the assignee or the project creator can move this issue.");
+      return;
+    }
+
+    await handleUpdateIssue(issueId, { status: targetStatus });
+  };
+
   // 1. Initial Load: Workspaces & Users List
   useEffect(() => {
     async function loadInitial() {
@@ -2028,7 +2055,33 @@ export function Workspace() {
                   {(["todo", "in-progress", "review", "done"] as const).map(colStatus => {
                     const colIssues = filteredIssues.filter(i => i.status === colStatus);
                     return (
-                      <div key={colStatus} style={{ background: "#0d0d0d", padding: "1rem", border: "1px solid #1a1a1a", display: "flex", flexDirection: "column", gap: "0.75rem", minHeight: "400px" }}>
+                      <div 
+                        key={colStatus} 
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          if (dragOverCol !== colStatus) {
+                            setDragOverCol(colStatus);
+                          }
+                        }}
+                        onDragLeave={() => {
+                          setDragOverCol(null);
+                        }}
+                        onDrop={(e) => {
+                          setDragOverCol(null);
+                          handleDrop(e, colStatus);
+                        }}
+                        style={{ 
+                          background: "#0d0d0d", 
+                          padding: "1rem", 
+                          border: dragOverCol === colStatus ? "1px solid var(--accent-color)" : "1px solid #1a1a1a", 
+                          boxShadow: dragOverCol === colStatus ? "0 0 10px rgba(77, 158, 255, 0.15)" : "none",
+                          display: "flex", 
+                          flexDirection: "column", 
+                          gap: "0.75rem", 
+                          minHeight: "400px",
+                          transition: "border-color 0.2s, box-shadow 0.2s"
+                        }}
+                      >
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #222", paddingBottom: "0.5rem", marginBottom: "0.25rem" }}>
                           <span style={{ fontFamily: "'Archivo', sans-serif", fontWeight: 800, fontSize: "calc(11px * var(--text-scale))", textTransform: "uppercase", color: "#f2f2f2" }}>
                             {statusLabels[colStatus]}
@@ -2038,11 +2091,31 @@ export function Workspace() {
 
                         {colIssues.map(issue => {
                           const assignee = members.find(m => m.id === issue.assigneeId);
+                          const canDrag = issue.assigneeId === user?.id || projCreatorId === user?.id;
                           return (
                             <div 
                               key={issue.id}
                               onClick={() => setSelectedId(issue.id)}
-                              style={{ background: "#080808", border: `1px solid ${selectedId === issue.id ? "var(--accent-color)" : "#222"}`, padding: "0.85rem", cursor: "pointer", display: "flex", flexDirection: "column", gap: "0.5rem" }}
+                              draggable={canDrag}
+                              onDragStart={(e) => {
+                                if (!canDrag) {
+                                  e.preventDefault();
+                                  return;
+                                }
+                                handleDragStart(e, issue.id);
+                              }}
+                              style={{ 
+                                background: "#080808", 
+                                border: `1px solid ${selectedId === issue.id ? "var(--accent-color)" : "#222"}`, 
+                                padding: "0.85rem", 
+                                cursor: canDrag ? "grab" : "not-allowed", 
+                                display: "flex", 
+                                flexDirection: "column", 
+                                gap: "0.5rem",
+                                opacity: canDrag ? 1 : 0.65,
+                                transition: "border-color 0.15s, opacity 0.15s"
+                              }}
+                              title={canDrag ? "Drag to reschedule issue status" : "Only assignees or the project creator can drag this issue"}
                             >
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                 <span style={{ fontFamily: "monospace", fontSize: "calc(10px * var(--text-scale))", color: "#777777" }}>{issue.id}</span>
