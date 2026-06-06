@@ -19,6 +19,7 @@ type ProjectType = {
   workspaceId: string;
   name: string;
   description: string;
+  key?: string;
   createdAt: string;
   creatorId?: string;
 };
@@ -196,6 +197,7 @@ export function Workspace() {
   const [newWorkspaceName, setNewWorkspaceName] = useState("");
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDesc, setNewProjectDesc] = useState("");
+  const [newProjectKey, setNewProjectKey] = useState("");
   const [newMemberEmail, setNewMemberEmail] = useState("");
   const [showWorkspaceForm, setShowWorkspaceForm] = useState(false);
   const [showProjectForm, setShowProjectForm] = useState(false);
@@ -414,12 +416,13 @@ export function Workspace() {
     try {
       const data = await apiFetch(`/api/workspaces/${activeWs.slug}/projects`, {
         method: "POST",
-        body: JSON.stringify({ name: newProjectName, description: newProjectDesc })
+        body: JSON.stringify({ name: newProjectName, description: newProjectDesc, key: newProjectKey })
       });
       setProjects(prev => [...prev, data.project]);
       setActiveProjId(data.project.id);
       setNewProjectName("");
       setNewProjectDesc("");
+      setNewProjectKey("");
       setShowProjectForm(false);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to create project");
@@ -763,13 +766,19 @@ export function Workspace() {
     // Update local state first for instant response
     setIssues(prev => prev.map(i => i.id === id ? { ...i, ...patch } : i));
     try {
-      await apiFetch(`/api/issues/${id}`, {
+      const data = await apiFetch(`/api/issues/${id}`, {
         method: "PUT",
         body: JSON.stringify(patch)
       });
+      // Sync with final backend state (which includes potential ID/number changes)
+      setIssues(prev => prev.map(i => i.id === id ? data.issue : i));
+      if (selectedId === id) {
+        setSelectedId(data.issue.id);
+      }
       fetchProjectActivities();
     } catch (err) {
       console.error("Failed to sync issue update to backend:", err);
+      alert(err instanceof Error ? err.message : "Failed to update issue");
     }
   }
 
@@ -1427,6 +1436,12 @@ export function Workspace() {
                   style={{ width: "100%", background: "#080808", border: "1px solid #222", color: "#fff", padding: "0.4rem 0.6rem", fontSize: "calc(11px * var(--text-scale))", outline: "none" }}
                 />
                 <input 
+                  value={newProjectKey} 
+                  onChange={e => setNewProjectKey(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10))} 
+                  placeholder="Project Key (optional, e.g. PROJ)" 
+                  style={{ width: "100%", background: "#080808", border: "1px solid #222", color: "#fff", padding: "0.4rem 0.6rem", fontSize: "calc(11px * var(--text-scale))", outline: "none" }}
+                />
+                <input 
                   value={newProjectDesc} 
                   onChange={e => setNewProjectDesc(e.target.value)} 
                   placeholder="Description (optional)" 
@@ -1447,8 +1462,14 @@ export function Workspace() {
                     onClick={() => setActiveProjId(p.id)}
                     style={{ flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center", border: "none", background: "transparent", color: "inherit", padding: "0.5rem 0.75rem", cursor: "pointer", fontFamily: "'Archivo', sans-serif", fontWeight: activeProjId === p.id ? 800 : 500, fontSize: "calc(12px * var(--text-scale))", textAlign: "left" }}
                   >
-                    <span style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                      <Folder size={13} /> {p.name}
+                    <span style={{ display: "flex", alignItems: "center", gap: "0.4rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginRight: "0.25rem" }}>
+                      <Folder size={13} style={{ flexShrink: 0 }} />
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
+                      {p.key && (
+                        <span style={{ fontSize: "calc(9px * var(--text-scale))", opacity: 0.6, fontFamily: "monospace", flexShrink: 0 }}>
+                          ({p.key})
+                        </span>
+                      )}
                     </span>
                     <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "calc(9px * var(--text-scale))", marginRight: "0.25rem" }}>
                       {issues.filter(i => i.projectId === p.id).length}
@@ -1610,7 +1631,14 @@ export function Workspace() {
                           onClick={() => setActiveProjId(proj.id)}
                           style={{ border: "1px solid #222", background: "#080808", padding: "1rem", cursor: "pointer" }}
                         >
-                          <h4 style={{ margin: "0 0 0.5rem 0", color: "#f2f2f2", fontSize: "calc(14px * var(--text-scale))", fontWeight: "700" }}>{proj.name}</h4>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "0 0 0.5rem 0" }}>
+                            <h4 style={{ margin: 0, color: "#f2f2f2", fontSize: "calc(14px * var(--text-scale))", fontWeight: "700" }}>{proj.name}</h4>
+                            {proj.key && (
+                              <span style={{ fontFamily: "monospace", background: "#111111", border: "1px solid #222", color: "var(--accent-color)", padding: "2px 6px", fontSize: "calc(9px * var(--text-scale))", borderRadius: "2px", fontWeight: "bold" }}>
+                                {proj.key}
+                              </span>
+                            )}
+                          </div>
                           <p style={{ margin: "0 0 1rem 0", color: "#999999", fontSize: "calc(11px * var(--text-scale))", minHeight: "34px", overflow: "hidden" }}>{proj.description || "No description provided."}</p>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #111", paddingTop: "0.5rem", fontSize: "calc(10px * var(--text-scale))", fontFamily: "monospace", color: "#cccccc" }}>
                             <span>{projIssues.length} ISSUES</span>
@@ -1630,8 +1658,13 @@ export function Workspace() {
               {/* Project Title and Stats Header */}
               <div style={{ borderBottom: "1px solid #222222", padding: "1.25rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
                 <div>
-                  <h2 style={{ margin: 0, fontFamily: "'Archivo', sans-serif", fontWeight: 900, fontSize: "calc(1.5rem * var(--text-scale))", color: "#f2f2f2", textTransform: "uppercase", letterSpacing: "-0.02em" }}>
+                  <h2 style={{ margin: 0, fontFamily: "'Archivo', sans-serif", fontWeight: 900, fontSize: "calc(1.5rem * var(--text-scale))", color: "#f2f2f2", textTransform: "uppercase", letterSpacing: "-0.02em", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                     {currentProject?.name}
+                    {currentProject?.key && (
+                      <span style={{ fontFamily: "monospace", fontSize: "calc(11px * var(--text-scale))", background: "#111111", border: "1px solid #222222", color: "var(--accent-color)", padding: "2px 6px", borderRadius: "2px", fontWeight: "bold", verticalAlign: "middle" }}>
+                        {currentProject.key}
+                      </span>
+                    )}
                   </h2>
                   <p style={{ margin: "0.25rem 0 0", color: "#999999", fontSize: "calc(12px * var(--text-scale))" }}>{currentProject?.description || "No project description."}</p>
                 </div>

@@ -693,7 +693,7 @@ app.get('/api/workspaces/:slug/projects', authenticateToken, async (req, res) =>
 
 app.post('/api/workspaces/:slug/projects', authenticateToken, async (req, res) => {
   const { slug } = req.params;
-  const { name, description } = req.body;
+  const { name, description, key: userKey } = req.body;
   if (!name) return res.status(400).json({ error: "Project name is required" });
 
   try {
@@ -701,12 +701,33 @@ app.post('/api/workspaces/:slug/projects', authenticateToken, async (req, res) =
     if (!ws) return res.status(404).json({ error: "Workspace not found" });
 
     const newProject = await prisma.$transaction(async (tx) => {
+      // Generate a short unique key (2-10 characters) from project name or custom userKey
+      let key = "";
+      if (userKey && typeof userKey === 'string') {
+        key = userKey.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+      }
+      if (!key || key.length < 2) {
+        key = name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+      }
+      if (!key || key.length < 2) {
+        key = "PROJ";
+      }
+      let uniqueKey = key;
+      let counter = 1;
+      while (true) {
+        const existing = await tx.project.findFirst({ where: { key: uniqueKey } });
+        if (!existing) break;
+        counter++;
+        uniqueKey = `${key}${counter}`;
+      }
+
       const project = await tx.project.create({
         data: {
           workspaceId: ws.id,
           name: name.trim(),
           description: description ? description.trim() : "",
-          creatorId: req.user.id
+          creatorId: req.user.id,
+          key: uniqueKey
         }
       });
 
@@ -1311,17 +1332,19 @@ app.post('/api/workspaces/:slug/issues', authenticateToken, async (req, res) => 
       return res.status(400).json({ error: "Assignee must be a member of the project" });
     }
 
-    const workspaceIssues = await prisma.issue.findMany({
-      where: { workspaceId: ws.id },
+    // Get project issues to calculate next number project-wise!
+    const projectIssues = await prisma.issue.findMany({
+      where: { projectId: targetProjectId },
       select: { issueNumber: true }
     });
 
-    const nextNumber = workspaceIssues.length > 0
-      ? Math.max(...workspaceIssues.map(i => i.issueNumber)) + 1
+    const nextNumber = projectIssues.length > 0
+      ? Math.max(...projectIssues.map(i => i.issueNumber)) + 1
       : 1;
 
-    const prefix = ws.name.slice(0, 2).toUpperCase().replace(/[^\w]/g, 'BB');
-    const issueId = `${prefix}-${String(nextNumber).padStart(3, '0')}`;
+    // Use the project's unique key as the prefix
+    const prefix = project.key || "PROJ";
+    const issueId = `${prefix}-${nextNumber}`;
 
     const newIssue = await prisma.issue.create({
       data: {
@@ -1420,12 +1443,37 @@ app.put('/api/issues/:id', authenticateToken, async (req, res) => {
       }
     }
 
+    let projectChanged = false;
+    let oldId = id;
+    let newId = id;
+
+    if (patch.projectId !== undefined && patch.projectId !== issue.projectId) {
+      const targetProjIssues = await prisma.issue.findMany({
+        where: { projectId: patch.projectId },
+        select: { issueNumber: true }
+      });
+      const nextNumber = targetProjIssues.length > 0
+        ? Math.max(...targetProjIssues.map(i => i.issueNumber)) + 1
+        : 1;
+
+      newId = `${project.key}-${nextNumber}`;
+
+      data.id = newId;
+      data.projectId = patch.projectId;
+      data.issueNumber = nextNumber;
+      projectChanged = true;
+    }
+
     const updatedIssue = await prisma.issue.update({
       where: { id },
       data
     });
 
-    if (patch.status && mapIssueStatus(patch.status) !== issue.status) {
+    if (projectChanged) {
+      const oldProj = await prisma.project.findUnique({ where: { id: issue.projectId } });
+      await logProjectActivity(issue.projectId, req.user.id, `moved issue ${oldId} to project "${project.name}"`);
+      await logProjectActivity(patch.projectId, req.user.id, `moved issue ${newId} here from project "${oldProj?.name || 'Unknown'}"`);
+    } else if (patch.status && mapIssueStatus(patch.status) !== issue.status) {
       const statusLabels = {
         todo: "Todo",
         "in-progress": "In Progress",
@@ -1433,8 +1481,8 @@ app.put('/api/issues/:id', authenticateToken, async (req, res) => {
         done: "Done"
       };
       const actMsg = patch.status === 'done'
-        ? `completed issue ${id}`
-        : `moved issue ${id} to ${statusLabels[patch.status] || patch.status}`;
+        ? `completed issue ${newId}`
+        : `moved issue ${newId} to ${statusLabels[patch.status] || patch.status}`;
       await logProjectActivity(targetProjectId, req.user.id, actMsg);
     }
 

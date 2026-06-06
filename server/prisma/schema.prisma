@@ -123,6 +123,7 @@ model Project {
 
   name        String
   description String?
+  key         String   @unique @default("PROJ")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -229,7 +230,7 @@ model Comment {
 
   createdAt DateTime @default(now())
 
-  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([issueId])
