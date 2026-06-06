@@ -1475,19 +1475,19 @@ export function Workspace() {
 
             <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
               {members.map(member => (
-                <div key={member.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.3rem 0.5rem", border: "1px solid #222", background: "#0d0d0d", color: "#cccccc", fontSize: "calc(12px * var(--text-scale))" }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <div style={{ width: 18, height: 18, background: "#111", border: "1px solid #222", color: "var(--accent-color)", fontSize: "calc(9px * var(--text-scale))", display: "grid", placeItems: "center", fontWeight: "bold" }}>
+                <div key={member.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", padding: "0.3rem 0.5rem", border: "1px solid #222", background: "#0d0d0d", color: "#cccccc", fontSize: "calc(12px * var(--text-scale))" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", minWidth: 0, flex: 1 }}>
+                    <div style={{ width: 18, height: 18, flexShrink: 0, background: "#111", border: "1px solid #222", color: "var(--accent-color)", fontSize: "calc(9px * var(--text-scale))", display: "grid", placeItems: "center", fontWeight: "bold" }}>
                       {member.avatar}
                     </div>
-                    <span style={{ color: "#fff", fontSize: "calc(11px * var(--text-scale))" }}>{member.username || member.name}</span>
-                  </span>
+                    <span style={{ color: "#fff", fontSize: "calc(11px * var(--text-scale))", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={member.username || member.name}>{member.username || member.name}</span>
+                  </div>
                   {member.id !== user?.id && (
                     <button
                       type="button"
                       onClick={() => handleRemoveWorkspaceMember(member.id)}
                       title="Remove from workspace"
-                      style={{ background: "transparent", border: "none", color: "#ff3b3b", opacity: 0.6, cursor: "pointer", display: "grid", placeItems: "center", padding: "2px" }}
+                      style={{ flexShrink: 0, background: "transparent", border: "none", color: "#ff3b3b", opacity: 0.6, cursor: "pointer", display: "grid", placeItems: "center", padding: "2px" }}
                       onMouseEnter={e => e.currentTarget.style.opacity = "1"}
                       onMouseLeave={e => e.currentTarget.style.opacity = "0.6"}
                     >
@@ -2414,19 +2414,21 @@ export function Workspace() {
                 </h3>
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1rem" }}>
                   {projMembers.map(member => (
-                    <div key={member.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.3rem 0.5rem", border: "1px solid #222", background: "#0d0d0d", color: "#cccccc", fontSize: "calc(12px * var(--text-scale))" }}>
-                      <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                        <div style={{ width: 18, height: 18, background: "#111", border: "1px solid #222", color: "var(--accent-color)", fontSize: "calc(9px * var(--text-scale))", display: "grid", placeItems: "center", fontWeight: "bold" }}>
+                    <div key={member.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", padding: "0.3rem 0.5rem", border: "1px solid #222", background: "#0d0d0d", color: "#cccccc", fontSize: "calc(12px * var(--text-scale))" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", minWidth: 0, flex: 1 }}>
+                        <div style={{ width: 18, height: 18, flexShrink: 0, background: "#111", border: "1px solid #222", color: "var(--accent-color)", fontSize: "calc(9px * var(--text-scale))", display: "grid", placeItems: "center", fontWeight: "bold" }}>
                           {member.avatar}
                         </div>
-                        <div style={{ display: "flex", flexDirection: "column" }}>
-                          <span style={{ color: "#fff", fontSize: "calc(11px * var(--text-scale))", fontWeight: "bold" }}>{member.username || member.name}{member.isPending && " (Pending)"}</span>
-                          <span style={{ fontSize: "calc(9px * var(--text-scale))", color: "#999999" }}>{member.email}</span>
+                        <div style={{ display: "flex", flexDirection: "column", minWidth: 0, flex: 1 }}>
+                          <span style={{ color: "#fff", fontSize: "calc(11px * var(--text-scale))", fontWeight: "bold", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={member.username || member.name}>{member.username || member.name}{member.isPending && " (Pending)"}</span>
+                          {(user?.id === projCreatorId || member.id === user?.id) && (
+                            <span style={{ fontSize: "calc(9px * var(--text-scale))", color: "#999999", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={member.email}>{member.email}</span>
+                          )}
                         </div>
-                      </span>
-                      <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+                      </div>
+                      <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", flexShrink: 0 }}>
                         {member.id === projCreatorId ? (
-                          <span style={{ color: "var(--accent-color)", fontSize: "calc(8px * var(--text-scale))", fontFamily: "'DM Mono', monospace", border: "1px solid var(--accent-color)", padding: "1px 4px", textTransform: "uppercase" }}>Creator</span>
+                          <span style={{ color: "var(--accent-color)", fontSize: "calc(8px * var(--text-scale))", fontFamily: "'DM Mono', monospace", border: "1px solid var(--accent-color)", padding: "1px 4px", textTransform: "uppercase", flexShrink: 0 }}>Creator</span>
                         ) : (
                           <>
                             {user?.id === projCreatorId ? (
@@ -2442,7 +2444,8 @@ export function Workspace() {
                                   padding: "2px",
                                   outline: "none",
                                   cursor: "pointer",
-                                  textTransform: "uppercase"
+                                  textTransform: "uppercase",
+                                  flexShrink: 0
                                 }}
                               >
                                 {["Lead", "Developer", "Designer", "QA", "Product Manager", "Member"].map(r => (
@@ -2450,7 +2453,7 @@ export function Workspace() {
                                 ))}
                               </select>
                             ) : (
-                              <span style={{ color: "#999999", fontSize: "calc(8px * var(--text-scale))", fontFamily: "'DM Mono', monospace", border: "1px solid #333", padding: "1px 4px", textTransform: "uppercase" }}>
+                              <span style={{ color: "#999999", fontSize: "calc(8px * var(--text-scale))", fontFamily: "'DM Mono', monospace", border: "1px solid #333", padding: "1px 4px", textTransform: "uppercase", flexShrink: 0 }}>
                                 {member.role || "Member"}
                               </span>
                             )}
@@ -2459,7 +2462,7 @@ export function Workspace() {
                                 type="button"
                                 onClick={() => handleRemoveProjMember(member.id)}
                                 title="Remove from project"
-                                style={{ background: "transparent", border: "none", color: "#ff3b3b", opacity: 0.6, cursor: "pointer", display: "grid", placeItems: "center", padding: "2px" }}
+                                style={{ background: "transparent", border: "none", color: "#ff3b3b", opacity: 0.6, cursor: "pointer", display: "grid", placeItems: "center", padding: "2px", flexShrink: 0 }}
                                 onMouseEnter={e => e.currentTarget.style.opacity = "1"}
                                 onMouseLeave={e => e.currentTarget.style.opacity = "0.6"}
                               >

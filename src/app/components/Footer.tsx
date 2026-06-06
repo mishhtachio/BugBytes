@@ -51,7 +51,14 @@ export function Footer() {
                 {items.map((item) => (
                   <li key={item}>
                     <a
-                      href="#"
+                      href={
+                        item === "GitHub" ? "https://github.com/mishhtachio/BugBytes" :
+                        item === "Changelog" ? "#changelog" :
+                        item === "Docs" ? "#docs" :
+                        item === "Workflow" ? "#workflow" : "#"
+                      }
+                      target={item === "GitHub" ? "_blank" : undefined}
+                      rel={item === "GitHub" ? "noopener noreferrer" : undefined}
                       style={{ fontFamily: "'Inter', sans-serif", fontWeight: 400, fontSize: "0.85rem", color: "#333333", textDecoration: "none", transition: "color 0.15s" }}
                       onMouseEnter={e => (e.currentTarget.style.color = "#f2f2f2")}
                       onMouseLeave={e => (e.currentTarget.style.color = "#333333")}
