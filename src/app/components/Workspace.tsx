@@ -26,6 +26,7 @@ type ProjectType = {
 
 type Issue = {
   id: string;
+  issueKey: string;
   projectId: string;
   workspaceId: string;
   title: string;
@@ -840,9 +841,9 @@ export function Workspace() {
 
         const titleMatch = issue.title.toLowerCase().includes(query.toLowerCase());
         const descMatch = issue.description.toLowerCase().includes(query.toLowerCase());
-        const idMatch = issue.id.toLowerCase().includes(query.toLowerCase());
+        const keyMatch = issue.issueKey.toLowerCase().includes(query.toLowerCase());
 
-        return matchesProject && matchesStatus && matchesPriority && matchesAssignee && (titleMatch || descMatch || idMatch);
+        return matchesProject && matchesStatus && matchesPriority && matchesAssignee && (titleMatch || descMatch || keyMatch);
       })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [issues, query, activeProjId, statusFilter, priorityFilter, assigneeFilter]);
@@ -1583,7 +1584,7 @@ export function Workspace() {
                         onMouseEnter={e => e.currentTarget.style.color = "#fff"}
                         onMouseLeave={e => e.currentTarget.style.color = "#888888"}
                       >
-                        <span style={{ fontFamily: "'DM Mono', monospace", color: "#777777", fontSize: "calc(10px * var(--text-scale))" }}>{issue.id}</span>
+                        <span style={{ fontFamily: "'DM Mono', monospace", color: "#777777", fontSize: "calc(10px * var(--text-scale))" }}>{issue.issueKey}</span>
                         <span style={{ flex: 1, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{issue.title}</span>
                       </button>
                     ))}
@@ -1605,7 +1606,7 @@ export function Workspace() {
                         onMouseEnter={e => e.currentTarget.style.color = "#fff"}
                         onMouseLeave={e => e.currentTarget.style.color = "#888888"}
                       >
-                        <span style={{ fontFamily: "'DM Mono', monospace", color: "#777777", fontSize: "calc(10px * var(--text-scale))" }}>{issue.id}</span>
+                        <span style={{ fontFamily: "'DM Mono', monospace", color: "#777777", fontSize: "calc(10px * var(--text-scale))" }}>{issue.issueKey}</span>
                         <span style={{ flex: 1, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{issue.title}</span>
                         <span style={{ fontSize: "calc(10px * var(--text-scale))", padding: "0.15rem 0.4rem", background: "#111", color: "var(--accent-color)" }}>{statusLabels[issue.status]}</span>
                       </button>
@@ -1769,7 +1770,7 @@ export function Workspace() {
                             }}
                           >
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              <span style={{ fontFamily: "'DM Mono', monospace", color: "#777777", fontSize: "calc(10px * var(--text-scale))" }}>{issue.id}</span>
+                              <span style={{ fontFamily: "'DM Mono', monospace", color: "#777777", fontSize: "calc(10px * var(--text-scale))" }}>{issue.issueKey}</span>
                               <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
                                 <span style={{ 
                                   fontSize: "calc(8px * var(--text-scale))", 
@@ -2037,7 +2038,7 @@ export function Workspace() {
                             onMouseEnter={e => e.currentTarget.style.background = selectedId === issue.id ? "#101820" : "#0d0d0d"}
                             onMouseLeave={e => e.currentTarget.style.background = selectedId === issue.id ? "#101820" : "transparent"}
                           >
-                            <td style={{ padding: "0.85rem 1rem", fontFamily: "'DM Mono', monospace", color: "#777777" }}>{issue.id}</td>
+                            <td style={{ padding: "0.85rem 1rem", fontFamily: "'DM Mono', monospace", color: "#777777" }}>{issue.issueKey}</td>
                             <td style={{ padding: "0.85rem 1rem" }}>
                               <span style={{ 
                                 fontSize: "calc(10px * var(--text-scale))", 
@@ -2154,7 +2155,7 @@ export function Workspace() {
                               title={canDrag ? "Drag to reschedule issue status" : "Only assignees or the project creator can drag this issue"}
                             >
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span style={{ fontFamily: "monospace", fontSize: "calc(10px * var(--text-scale))", color: "#777777" }}>{issue.id}</span>
+                                <span style={{ fontFamily: "monospace", fontSize: "calc(10px * var(--text-scale))", color: "#777777" }}>{issue.issueKey}</span>
                                  <span style={{ 
                                   fontSize: "calc(8px * var(--text-scale))", 
                                   padding: "0.1rem 0.35rem", 
@@ -2233,7 +2234,7 @@ export function Workspace() {
           {selectedIssue ? (
             <>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ fontFamily: "'DM Mono', monospace", color: "#777777", fontSize: "calc(11px * var(--text-scale))" }}>{selectedIssue.id}</span>
+                <span style={{ fontFamily: "'DM Mono', monospace", color: "#777777", fontSize: "calc(11px * var(--text-scale))" }}>{selectedIssue.issueKey}</span>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                   <button
                     type="button"

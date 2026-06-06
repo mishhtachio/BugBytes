@@ -142,9 +142,12 @@ async function main() {
 
   console.log('Migrating Projects...');
   const projectKeys = {};
-  const usedKeys = new Set();
+  const workspaceKeys = {};
   for (const p of db.projects || []) {
-    const key = getProjectKey(p.name, usedKeys);
+    if (!workspaceKeys[p.workspaceId]) {
+      workspaceKeys[p.workspaceId] = new Set();
+    }
+    const key = getProjectKey(p.name, workspaceKeys[p.workspaceId]);
     projectKeys[p.id] = key;
 
     await prisma.project.create({
@@ -208,17 +211,18 @@ async function main() {
     projectIssueCounters[projId]++;
     const issueNum = projectIssueCounters[projId];
     
-    const newId = `${projKey}-${issueNum}`;
-    issueIdMap[issue.id] = { id: newId, number: issueNum };
+    const newKey = `${projKey}-${issueNum}`;
+    issueIdMap[issue.id] = { issueKey: newKey, number: issueNum };
   }
 
   console.log('Migrating Issues...');
   for (const issue of db.issues || []) {
-    const mapping = issueIdMap[issue.id] || { id: issue.id, number: 1 };
+    const mapping = issueIdMap[issue.id] || { issueKey: `PROJ-${issue.id}`, number: 1 };
 
     await prisma.issue.create({
       data: {
-        id: mapping.id,
+        id: issue.id,
+        issueKey: mapping.issueKey,
         issueNumber: mapping.number,
         workspaceId: issue.workspaceId,
         projectId: issue.projectId,
@@ -243,18 +247,15 @@ async function main() {
 
   console.log('Migrating Comments...');
   for (const c of db.comments || []) {
-    const mappedIssue = issueIdMap[c.issueId];
-    const newIssueId = mappedIssue ? mappedIssue.id : c.issueId;
-
     let content = c.content || '';
     for (const [oldId, mapped] of Object.entries(issueIdMap)) {
-      content = content.replace(new RegExp(oldId, 'g'), mapped.id);
+      content = content.replace(new RegExp(oldId, 'g'), mapped.issueKey);
     }
 
     await prisma.comment.create({
       data: {
         id: c.id,
-        issueId: newIssueId,
+        issueId: c.issueId,
         userId: c.userId,
         content,
         createdAt: c.createdAt ? new Date(c.createdAt) : new Date(),
@@ -282,7 +283,7 @@ async function main() {
   for (const act of db.projectActivities || []) {
     let message = act.message || '';
     for (const [oldId, mapped] of Object.entries(issueIdMap)) {
-      message = message.replace(new RegExp(oldId, 'g'), mapped.id);
+      message = message.replace(new RegExp(oldId, 'g'), mapped.issueKey);
     }
 
     await prisma.projectActivity.create({

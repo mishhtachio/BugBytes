@@ -715,7 +715,12 @@ app.post('/api/workspaces/:slug/projects', authenticateToken, async (req, res) =
       let uniqueKey = key;
       let counter = 1;
       while (true) {
-        const existing = await tx.project.findFirst({ where: { key: uniqueKey } });
+        const existing = await tx.project.findFirst({
+          where: {
+            workspaceId: ws.id,
+            key: uniqueKey
+          }
+        });
         if (!existing) break;
         counter++;
         uniqueKey = `${key}${counter}`;
@@ -1344,11 +1349,11 @@ app.post('/api/workspaces/:slug/issues', authenticateToken, async (req, res) => 
 
     // Use the project's unique key as the prefix
     const prefix = project.key || "PROJ";
-    const issueId = `${prefix}-${nextNumber}`;
+    const issueKey = `${prefix}-${nextNumber}`;
 
     const newIssue = await prisma.issue.create({
       data: {
-        id: issueId,
+        issueKey,
         issueNumber: nextNumber,
         projectId: targetProjectId,
         workspaceId: ws.id,
@@ -1367,7 +1372,7 @@ app.post('/api/workspaces/:slug/issues', authenticateToken, async (req, res) => 
       }
     });
 
-    await logProjectActivity(targetProjectId, req.user.id, `created issue ${issueId}`);
+    await logProjectActivity(targetProjectId, req.user.id, `created issue ${issueKey}`);
     res.json({ issue: mapIssueToUi(newIssue) });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1444,8 +1449,6 @@ app.put('/api/issues/:id', authenticateToken, async (req, res) => {
     }
 
     let projectChanged = false;
-    let oldId = id;
-    let newId = id;
 
     if (patch.projectId !== undefined && patch.projectId !== issue.projectId) {
       const targetProjIssues = await prisma.issue.findMany({
@@ -1456,11 +1459,11 @@ app.put('/api/issues/:id', authenticateToken, async (req, res) => {
         ? Math.max(...targetProjIssues.map(i => i.issueNumber)) + 1
         : 1;
 
-      newId = `${project.key}-${nextNumber}`;
+      const newIssueKey = `${project.key}-${nextNumber}`;
 
-      data.id = newId;
       data.projectId = patch.projectId;
       data.issueNumber = nextNumber;
+      data.issueKey = newIssueKey;
       projectChanged = true;
     }
 
@@ -1471,8 +1474,8 @@ app.put('/api/issues/:id', authenticateToken, async (req, res) => {
 
     if (projectChanged) {
       const oldProj = await prisma.project.findUnique({ where: { id: issue.projectId } });
-      await logProjectActivity(issue.projectId, req.user.id, `moved issue ${oldId} to project "${project.name}"`);
-      await logProjectActivity(patch.projectId, req.user.id, `moved issue ${newId} here from project "${oldProj?.name || 'Unknown'}"`);
+      await logProjectActivity(issue.projectId, req.user.id, `moved issue ${issue.issueKey} to project "${project.name}"`);
+      await logProjectActivity(patch.projectId, req.user.id, `moved issue ${updatedIssue.issueKey} here from project "${oldProj?.name || 'Unknown'}"`);
     } else if (patch.status && mapIssueStatus(patch.status) !== issue.status) {
       const statusLabels = {
         todo: "Todo",
@@ -1481,8 +1484,8 @@ app.put('/api/issues/:id', authenticateToken, async (req, res) => {
         done: "Done"
       };
       const actMsg = patch.status === 'done'
-        ? `completed issue ${newId}`
-        : `moved issue ${newId} to ${statusLabels[patch.status] || patch.status}`;
+        ? `completed issue ${updatedIssue.issueKey}`
+        : `moved issue ${updatedIssue.issueKey} to ${statusLabels[patch.status] || patch.status}`;
       await logProjectActivity(targetProjectId, req.user.id, actMsg);
     }
 
@@ -1601,7 +1604,7 @@ app.post('/api/webhooks/git', async (req, res) => {
         const issueIds = [...new Set(matches.map(m => m.toUpperCase()))];
 
         for (const issueId of issueIds) {
-          const issue = await prisma.issue.findUnique({ where: { id: issueId } });
+          const issue = await prisma.issue.findFirst({ where: { issueKey: issueId } });
           if (!issue) {
             logs.push(`Issue ${issueId} not found in database.`);
             continue;
@@ -1663,7 +1666,7 @@ app.post('/api/webhooks/git', async (req, res) => {
         const issueIds = [...new Set(matches.map(m => m.toUpperCase()))];
 
         for (const issueId of issueIds) {
-          const issue = await prisma.issue.findUnique({ where: { id: issueId } });
+          const issue = await prisma.issue.findFirst({ where: { issueKey: issueId } });
           if (!issue) {
             logs.push(`Issue ${issueId} not found in database.`);
             continue;
