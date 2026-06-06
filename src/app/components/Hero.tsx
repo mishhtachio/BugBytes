@@ -46,7 +46,8 @@ export function Hero({ onAuth }: HeroProps) {
             fontWeight: 900,
             fontSize: "clamp(4rem, 11vw, 9.5rem)",
             lineHeight: 0.92,
-            letterSpacing: "-0.05em",
+            letterSpacing: "-0.065em",
+            wordSpacing: "0.13em",
             color: "#f2f2f2",
             textTransform: "uppercase",
             margin: 0,
@@ -104,7 +105,9 @@ export function Hero({ onAuth }: HeroProps) {
               Start for free <ArrowRight size={14} />
             </button>
             <a
-              href="#"
+              href="https://github.com/mishhtachio/BugBytes"
+              target="_blank"
+              rel="noopener noreferrer"
               style={{
                 fontFamily: "'Archivo', sans-serif",
                 fontWeight: 700,
