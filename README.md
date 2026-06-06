@@ -35,6 +35,11 @@ BugBytes is a project management and issue-tracking platform designed for indie 
 * **Commit Parsing**: Mentioning `#BB-001` transitions issues to *In Progress* and posts commits as comments. Prefixing with `Fixes`, `Resolves`, or `Closes` automatically marks issues as **Done**.
 * **Pull Request Tracking**: Transitions issues to *Review* when a PR is opened, and to *Done* when merged.
 
+### Activity Timeline Feed
+* **Live Activity Logging**: Real-time logging of issue creations, status transitions, member role adjustments, and Git webhook operations.
+* **Cyberpunk Visuals**: A glowing, vertical node timeline with color-coded markers (purple for Git/PR activities, green for completions/resolutions, and custom neon accents for general project events).
+* **Security & Isolation**: Activity records are securely isolated per project, strictly accessible only to authorized project members.
+
 ### Premium UI Customization
 * **Resizable Panels**: Adjustable left sidebar (`180px` to `450px`) and right sidebar (`260px` to `600px`) widths, saved automatically in localStorage.
 * **Neon Swatches**: Set the global UI theme to cyber blue, neon green, electric cyan, hot pink, or purple rain.

@@ -122,7 +122,8 @@ function readDb() {
         comments: [],
         projectMembers: [],
         projectInvitations: [],
-        personalTodos: []
+        personalTodos: [],
+        projectActivities: []
       };
 
       fs.writeFileSync(dbPath, JSON.stringify(initial, null, 2));
@@ -140,6 +141,10 @@ function readDb() {
     }
     if (!db.personalTodos) {
       db.personalTodos = [];
+      modified = true;
+    }
+    if (!db.projectActivities) {
+      db.projectActivities = [];
       modified = true;
     }
     if (db.projects) {
@@ -195,6 +200,30 @@ function writeDb(data) {
   } catch (err) {
     console.error("DB Write Error:", err);
   }
+}
+
+function logProjectActivity(db, projectId, userId, message, customUserName = null) {
+  let userName = "System";
+  if (customUserName) {
+    userName = customUserName;
+  } else if (userId) {
+    const user = db.users.find(u => u.id === userId);
+    userName = user ? (user.username || user.name) : "System";
+  }
+
+  const activity = {
+    id: 'act-' + Math.random().toString(36).substring(2, 9),
+    projectId,
+    userId: userId || null,
+    userName,
+    message,
+    createdAt: new Date().toISOString()
+  };
+
+  if (!db.projectActivities) {
+    db.projectActivities = [];
+  }
+  db.projectActivities.push(activity);
 }
 
 // Authentication Middleware via Clerk JWT session token verification
@@ -748,6 +777,27 @@ app.put('/api/projects/:id/members/:userId/role', authenticateToken, (req, res) 
   res.json({ success: true, role });
 });
 
+app.get('/api/projects/:id/activity', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const db = readDb();
+  
+  const project = db.projects.find(p => p.id === id);
+  if (!project) return res.status(404).json({ error: "Project not found" });
+
+  // Verify access
+  const isMember = project.creatorId === req.user.id ||
+    (db.projectMembers || []).some(pm => pm.projectId === id && pm.userId === req.user.id);
+  if (!isMember) {
+    return res.status(403).json({ error: "You are not a member of this project" });
+  }
+
+  const activities = (db.projectActivities || [])
+    .filter(act => act.projectId === id)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  res.json({ activities });
+});
+
 // Personal Todos inside a Project
 app.get('/api/projects/:id/todos', authenticateToken, (req, res) => {
   const { id } = req.params;
@@ -1029,6 +1079,7 @@ app.post('/api/workspaces/:slug/issues', authenticateToken, (req, res) => {
   };
 
   db.issues.push(newIssue);
+  logProjectActivity(db, targetProjectId, req.user.id, `created issue ${issueId}`);
   writeDb(db);
   res.json({ issue: newIssue });
 });
@@ -1077,6 +1128,19 @@ app.put('/api/issues/:id', authenticateToken, (req, res) => {
       updatedIssue.bugSeverity = undefined;
       updatedIssue.bugEnv = undefined;
     }
+  }
+
+  if (patch.status && patch.status !== oldIssue.status) {
+    const statusLabels = {
+      todo: "Todo",
+      "in-progress": "In Progress",
+      review: "Review",
+      done: "Done"
+    };
+    const actMsg = patch.status === 'done'
+      ? `completed issue ${id}`
+      : `moved issue ${id} to ${statusLabels[patch.status] || patch.status}`;
+    logProjectActivity(db, targetProjectId, req.user.id, actMsg);
   }
 
   db.issues[idx] = updatedIssue;
@@ -1206,6 +1270,17 @@ app.post('/api/webhooks/git', (req, res) => {
           issue.status = newStatus;
           issue.updatedAt = new Date().toISOString();
           updatedIssues.push({ id: issueId, oldStatus, newStatus });
+
+          const statusLabels = {
+            todo: "Todo",
+            "in-progress": "In Progress",
+            review: "Review",
+            done: "Done"
+          };
+          const actMsg = newStatus === 'done'
+            ? `completed issue ${issueId} via git commit`
+            : `moved issue ${issueId} to ${statusLabels[newStatus] || newStatus} via git commit`;
+          logProjectActivity(db, issue.projectId, null, actMsg, authorName);
         }
 
         const cleanMessage = message.replace(issueRegex, '').replace(/[\s-:\(\)]*$/, '').trim();
@@ -1279,6 +1354,26 @@ app.post('/api/webhooks/git', (req, res) => {
             issue.status = newStatus;
             issue.updatedAt = new Date().toISOString();
             updatedIssues.push({ id: issueId, oldStatus, newStatus });
+
+            let actMsg = '';
+            if (newStatus === 'done') {
+              actMsg = `completed issue ${issueId} via merging PR #${number}`;
+            } else if (newStatus === 'review') {
+              actMsg = `moved issue ${issueId} to Review via opening PR #${number}`;
+            } else {
+              const statusLabels = {
+                todo: "Todo",
+                "in-progress": "In Progress",
+                review: "Review",
+                done: "Done"
+              };
+              actMsg = `moved issue ${issueId} to ${statusLabels[newStatus] || newStatus} via PR #${number}`;
+            }
+            logProjectActivity(db, issue.projectId, null, actMsg, authorName);
+          }
+
+          if (action === 'closed' && merged) {
+            logProjectActivity(db, issue.projectId, null, `merged PR #${number}`, authorName);
           }
 
           const systemComment = {

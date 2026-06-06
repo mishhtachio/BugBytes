@@ -186,7 +186,9 @@ export function Workspace() {
   const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
 
   // Roles, Personal Workspace, and Bug/Feature states
-  const [projectTab, setProjectTab] = useState<"board" | "personal">("board");
+  const [projectTab, setProjectTab] = useState<"board" | "personal" | "activity">("board");
+  const [activities, setActivities] = useState<any[]>([]);
+  const [loadingActivities, setLoadingActivities] = useState(false);
   const [personalTodos, setPersonalTodos] = useState<TodoType[]>([]);
   const [newTodoText, setNewTodoText] = useState("");
   const [newType, setNewType] = useState<IssueType>("bug");
@@ -443,12 +445,27 @@ export function Workspace() {
     }
   }
 
-  // Load Project Members and Personal Todos when activeProjId changes
+  // Helper to fetch Project Activities
+  async function fetchProjectActivities() {
+    if (activeProjId === "dashboard") return;
+    setLoadingActivities(true);
+    try {
+      const activitiesData = await apiFetch(`/api/projects/${activeProjId}/activity`);
+      setActivities(activitiesData.activities || []);
+    } catch (err) {
+      console.error("Failed to load project activities:", err);
+    } finally {
+      setLoadingActivities(false);
+    }
+  }
+
+  // Load Project Members, Personal Todos, and Activities when activeProjId changes
   useEffect(() => {
     if (activeProjId === "dashboard") {
       setProjMembers([]);
       setProjCreatorId("");
       setPersonalTodos([]);
+      setActivities([]);
       setProjectTab("board");
       return;
     }
@@ -461,12 +478,22 @@ export function Workspace() {
 
         const todosData = await apiFetch(`/api/projects/${activeProjId}/todos`);
         setPersonalTodos(todosData.todos || []);
+
+        const activitiesData = await apiFetch(`/api/projects/${activeProjId}/activity`);
+        setActivities(activitiesData.activities || []);
       } catch (err) {
         console.error("Failed to load project details:", err);
       }
     }
     loadProjectDetails();
   }, [activeProjId]);
+
+  // Refresh activities when switching to the activity tab
+  useEffect(() => {
+    if (projectTab === "activity") {
+      fetchProjectActivities();
+    }
+  }, [projectTab]);
 
   // Action: Invite Member to Project
   async function handleInviteProjMember(e: FormEvent) {
@@ -692,6 +719,7 @@ export function Workspace() {
       setIssues(prev => [data.issue, ...prev]);
       setSelectedId(data.issue.id);
       setNewTitle("");
+      fetchProjectActivities();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to create issue");
     }
@@ -712,6 +740,7 @@ export function Workspace() {
         method: "PUT",
         body: JSON.stringify(patch)
       });
+      fetchProjectActivities();
     } catch (err) {
       console.error("Failed to sync issue update to backend:", err);
     }
@@ -1593,6 +1622,12 @@ export function Workspace() {
                     >
                       My Workspace
                     </button>
+                    <button 
+                      onClick={() => setProjectTab("activity")}
+                      style={{ background: projectTab === "activity" ? "var(--accent-color)" : "transparent", color: projectTab === "activity" ? "#080808" : "#888888", border: "none", padding: "0.4rem 0.8rem", cursor: "pointer", fontSize: "calc(11px * var(--text-scale))", fontWeight: "bold" }}
+                    >
+                      Activity Timeline
+                    </button>
                   </div>
 
                   {/* View Mode Select (List / Kanban) */}
@@ -1781,6 +1816,61 @@ export function Workspace() {
                         )}
                       </div>
                     </div>
+                  </div>
+                </div>
+              ) : projectTab === "activity" ? (
+                // ================= ACTIVITY TIMELINE VIEW =================
+                <div style={{ padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                    <h3 style={{ fontFamily: "'Archivo', sans-serif", fontWeight: 800, fontSize: "calc(13px * var(--text-scale))", color: "#f2f2f2", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid #222", paddingBottom: "0.5rem", marginBottom: "0.5rem" }}>
+                      Project Activity Timeline
+                    </h3>
+                    
+                    {loadingActivities ? (
+                      <div style={{ color: "var(--accent-color)", fontFamily: "monospace", fontSize: "calc(12px * var(--text-scale))", padding: "1rem" }}>
+                        LOADING TIMELINE LOGS...
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem", paddingLeft: "0.5rem", borderLeft: "2px solid #222222", marginLeft: "0.5rem", position: "relative" }}>
+                        {activities.map((act) => {
+                          const timeStr = new Date(act.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                          const isGit = act.message.includes("git") || act.message.includes("PR #");
+                          const dotColor = isGit ? "#8b5cf6" : act.message.includes("completed") ? "#10b981" : "var(--accent-color)";
+                          
+                          return (
+                            <div key={act.id} style={{ position: "relative", display: "flex", gap: "1rem", alignItems: "flex-start" }}>
+                              {/* Timeline dot */}
+                              <div style={{ 
+                                position: "absolute", 
+                                left: "-11px", 
+                                top: "5px", 
+                                width: "6px", 
+                                height: "6px", 
+                                borderRadius: "50%", 
+                                background: dotColor,
+                                border: "2px solid #080808",
+                                boxShadow: `0 0 8px ${dotColor}`
+                              }} />
+                              
+                              <div style={{ flex: 1, border: "1px solid #1a1a1a", background: "#0d0d0d", padding: "0.75rem 1rem", fontSize: "calc(12px * var(--text-scale))" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.25rem" }}>
+                                  <span style={{ fontWeight: "bold", color: "#ffffff" }}>{act.userName}</span>
+                                  <span style={{ fontFamily: "'DM Mono', monospace", color: "#777777", fontSize: "calc(10px * var(--text-scale))" }}>{timeStr}</span>
+                                </div>
+                                <div style={{ color: "#cccccc", lineHeight: 1.4 }}>
+                                  {act.message}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {activities.length === 0 && (
+                          <div style={{ color: "#777777", fontSize: "calc(12px * var(--text-scale))", padding: "1rem 0", fontStyle: "italic" }}>
+                            No activities recorded for this project yet.
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
