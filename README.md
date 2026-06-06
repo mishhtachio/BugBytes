@@ -32,7 +32,7 @@ BugBytes is a project management and issue-tracking platform designed for indie 
 
 ### Git Commit & Pull Request Webhooks
 * Built-in `/api/webhooks/git` endpoint listening for GitHub/GitLab events.
-* **Commit Parsing**: Mentioning `#BB-001` transitions issues to *In Progress* and posts commits as comments. Prefixing with `Fixes`, `Resolves`, or `Closes` automatically marks issues as **Done**.
+* **Commit Parsing**: Mentioning an issue key (e.g., `GMTK-1` or `[GMTK-1]`) transitions issues to *In Progress* and posts commits as comments. Prefixing with `Fixes`, `Resolves`, or `Closes` automatically marks issues as **Done**.
 * **Pull Request Tracking**: Transitions issues to *Review* when a PR is opened, and to *Done* when merged.
 
 ### Activity Timeline Feed
@@ -47,11 +47,10 @@ BugBytes is a project management and issue-tracking platform designed for indie 
 ---
 
 ## 🛠️ Tech Stack
-
 * **Frontend**: React 18, Vite, Lucide React (Icons), CSS Variables (Cyberpunk Theme)
 * **Authentication**: Clerk (Google, GitHub, and passwordless email password)
 * **Backend**: Node.js, Express, Clerk Express Middleware (`@clerk/express`)
-* **Database**: Flat-file JSON registry (`server/db.json`) (will update with PostgreSQL soon)
+* **Database & ORM**: PostgreSQL (Supabase) managed via Prisma ORM
 
 ---
 
@@ -64,7 +63,7 @@ Make sure you have [Node.js](https://nodejs.org/) installed (v18+ recommended).
 Create a project on [Clerk Auth](https://clerk.com/) and enable Google/GitHub social logins or email options. Take note of your publishable key and secret key.
 
 ### 3. Environment Variables
-Create a `.env` file in the root directory:
+Create a `.env` file in the root directory (and copy/reference it inside the `server/` directory if needed):
 
 ```env
 # Frontend Config
@@ -73,18 +72,23 @@ VITE_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key_here
 # Backend Config
 CLERK_SECRET_KEY=your_clerk_secret_key_here
 PORT=3000
+
+# PostgreSQL Connection URL (Supabase/Local)
+DATABASE_URL="postgresql://username:password@host:port/database"
 ```
 
-### 4. Install Dependencies
-Install dependencies in both root and backend folders:
+### 4. Install Dependencies & Database Sync
+Install dependencies in both root and backend folders and synchronize your schema:
 
 ```bash
 # Install root/frontend dependencies
 npm install
 
-# Install server/backend dependencies
+# Install server/backend dependencies & generate client
 cd server
 npm install
+npx prisma generate
+npx prisma db push
 cd ..
 ```
 
@@ -112,7 +116,7 @@ curl -X POST http://localhost:3000/api/webhooks/git \
     "commits": [
       {
         "id": "abc12345",
-        "message": "Closes #BB-001: Resolve database sync issue",
+        "message": "Closes GMTK-1: Resolve database sync issue",
         "url": "https://github.com/example/repo/commit/abc12345",
         "author": { "name": "Hack Dev" }
       }
@@ -126,9 +130,11 @@ curl -X POST http://localhost:3000/api/webhooks/git \
 
 ```
 ├── server/
-│   ├── db.json          # Database flat file
-│   ├── index.js         # Express app server, routes, and webhooks
-│   ├── loadEnv.js       # Preload environment variables prior to modules hoisting
+│   ├── prisma/
+│   │   └── schema.prisma    # Prisma schema and database model configurations
+│   ├── index.js             # Express app server, routes, and webhooks
+│   ├── loadEnv.js           # Preload environment variables prior to modules hoisting
+│   ├── migrateJsonToPg.js   # Script to migrate JSON db to PostgreSQL
 │   └── package.json
 ├── src/
 │   ├── app/
