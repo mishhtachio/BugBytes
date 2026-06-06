@@ -37,7 +37,6 @@ BugBytes is a project management and issue-tracking platform designed for indie 
 
 ### Activity Timeline Feed
 * **Live Activity Logging**: Real-time logging of issue creations, status transitions, member role adjustments, and Git webhook operations.
-* **Cyberpunk Visuals**: A glowing, vertical node timeline with color-coded markers (purple for Git/PR activities, green for completions/resolutions, and custom neon accents for general project events).
 * **Security & Isolation**: Activity records are securely isolated per project, strictly accessible only to authorized project members.
 
 ### Premium UI Customization
