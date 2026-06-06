@@ -257,6 +257,32 @@ export function Docs() {
 
   return (
     <div style={{ background: "#080808", minHeight: "100vh", color: "#f2f2f2", paddingTop: "80px", paddingBottom: "5rem" }}>
+      <style>{`
+        .docs-body p {
+          margin-top: 0;
+          margin-bottom: 1.25rem;
+          line-height: 1.8;
+          color: #cccccc;
+          text-align: left;
+        }
+        .docs-body strong {
+          color: #ffffff;
+          font-weight: 700;
+        }
+        .docs-body li {
+          margin-bottom: 0.55rem;
+          color: #cccccc;
+          line-height: 1.7;
+        }
+        .docs-body code {
+          background: #161616;
+          color: #ff5e97;
+          padding: 2px 6px;
+          font-family: 'DM Mono', monospace;
+          font-size: 0.9em;
+          border: 1px solid #222;
+        }
+      `}</style>
       <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "0 1.5rem" }}>
         
         {/* Back Link */}
@@ -399,11 +425,12 @@ export function Docs() {
 
               {/* Main content body */}
               <div
+                className="docs-body"
                 style={{
                   fontFamily: "'Inter', sans-serif",
-                  fontWeight: 300,
-                  fontSize: "calc(13px * var(--text-scale))",
-                  lineHeight: 1.7,
+                  fontWeight: 400,
+                  fontSize: "calc(13.5px * var(--text-scale))",
+                  lineHeight: 1.8,
                   color: "#cccccc"
                 }}
               >

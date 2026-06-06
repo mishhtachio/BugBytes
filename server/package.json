@@ -5,14 +5,20 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev"
   },
   "dependencies": {
     "@clerk/express": "^2.1.23",
+    "@prisma/client": "^5.12.1",
     "axios": "^1.7.9",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "prisma": "^5.12.1"
   }
 }

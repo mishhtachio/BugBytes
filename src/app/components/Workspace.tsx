@@ -5,7 +5,7 @@ import { useUser, UserProfile } from "@clerk/clerk-react";
 
 type IssueStatus = "todo" | "in-progress" | "review" | "done";
 type IssuePriority = "urgent" | "high" | "medium" | "low";
-type IssueType = "bug" | "feature";
+type IssueType = "issue" | "bug" | "feature";
 
 type WorkspaceType = {
   id: string;
@@ -191,7 +191,7 @@ export function Workspace() {
   const [loadingActivities, setLoadingActivities] = useState(false);
   const [personalTodos, setPersonalTodos] = useState<TodoType[]>([]);
   const [newTodoText, setNewTodoText] = useState("");
-  const [newType, setNewType] = useState<IssueType>("bug");
+  const [newType, setNewType] = useState<IssueType>("issue");
   const [newProjMemberRole, setNewProjMemberRole] = useState<string>("Member");
   const [newWorkspaceName, setNewWorkspaceName] = useState("");
   const [newProjectName, setNewProjectName] = useState("");
@@ -821,19 +821,21 @@ export function Workspace() {
 
   // Filter Issues
   const filteredIssues = useMemo(() => {
-    return issues.filter((issue) => {
-      // If we are in project view, filter issues belonging to this project
-      const matchesProject = activeProjId === "dashboard" || issue.projectId === activeProjId;
-      const matchesStatus = statusFilter === "all" || issue.status === statusFilter;
-      const matchesPriority = priorityFilter === "all" || issue.priority === priorityFilter;
-      const matchesAssignee = assigneeFilter === "all" || issue.assigneeId === assigneeFilter;
+    return issues
+      .filter((issue) => {
+        // If we are in project view, filter issues belonging to this project
+        const matchesProject = activeProjId === "dashboard" || issue.projectId === activeProjId;
+        const matchesStatus = statusFilter === "all" || issue.status === statusFilter;
+        const matchesPriority = priorityFilter === "all" || issue.priority === priorityFilter;
+        const matchesAssignee = assigneeFilter === "all" || issue.assigneeId === assigneeFilter;
 
-      const titleMatch = issue.title.toLowerCase().includes(query.toLowerCase());
-      const descMatch = issue.description.toLowerCase().includes(query.toLowerCase());
-      const idMatch = issue.id.toLowerCase().includes(query.toLowerCase());
+        const titleMatch = issue.title.toLowerCase().includes(query.toLowerCase());
+        const descMatch = issue.description.toLowerCase().includes(query.toLowerCase());
+        const idMatch = issue.id.toLowerCase().includes(query.toLowerCase());
 
-      return matchesProject && matchesStatus && matchesPriority && matchesAssignee && (titleMatch || descMatch || idMatch);
-    });
+        return matchesProject && matchesStatus && matchesPriority && matchesAssignee && (titleMatch || descMatch || idMatch);
+      })
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [issues, query, activeProjId, statusFilter, priorityFilter, assigneeFilter]);
 
   // Selected Issue Context
@@ -1739,13 +1741,13 @@ export function Workspace() {
                                 <span style={{ 
                                   fontSize: "calc(8px * var(--text-scale))", 
                                   padding: "0.15rem 0.35rem", 
-                                  background: issue.type === "feature" ? "#4b2b6b" : "#6b2b2b", 
+                                  background: issue.type === "feature" ? "#4b2b6b" : issue.type === "bug" ? "#6b2b2b" : "#2b4b6b", 
                                   color: "#ffffff",
                                   fontFamily: "'DM Mono', monospace",
                                   fontWeight: "bold",
                                   textTransform: "uppercase"
                                 }}>
-                                  {issue.type === "feature" ? "Feature" : "Bug"}
+                                  {issue.type === "feature" ? "Feature" : issue.type === "bug" ? "Bug" : "Issue"}
                                 </span>
                                 <span style={{ 
                                   fontSize: "calc(8px * var(--text-scale))", 
@@ -1950,6 +1952,7 @@ export function Workspace() {
                           cursor: "pointer"
                         }}
                       >
+                        <option value="issue">Issue</option>
                         <option value="bug">Bug</option>
                         <option value="feature">Feature</option>
                       </select>
@@ -2006,13 +2009,13 @@ export function Workspace() {
                               <span style={{ 
                                 fontSize: "calc(10px * var(--text-scale))", 
                                 padding: "0.2rem 0.4rem", 
-                                background: issue.type === "feature" ? "#4b2b6b" : "#6b2b2b", 
+                               background: issue.type === "feature" ? "#4b2b6b" : issue.type === "bug" ? "#6b2b2b" : "#2b4b6b", 
                                 color: "#ffffff",
                                 fontFamily: "'DM Mono', monospace",
                                 fontWeight: "bold",
                                 textTransform: "uppercase"
                               }}>
-                                {issue.type === "feature" ? "FEATURE" : "BUG"}
+                                {issue.type === "feature" ? "FEATURE" : issue.type === "bug" ? "BUG" : "ISSUE"}
                               </span>
                             </td>
                             <td style={{ padding: "0.85rem 1rem", color: issue.status === "done" ? "#10b981" : "#f2f2f2", fontWeight: 500 }}>
@@ -2119,16 +2122,16 @@ export function Workspace() {
                             >
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                 <span style={{ fontFamily: "monospace", fontSize: "calc(10px * var(--text-scale))", color: "#777777" }}>{issue.id}</span>
-                                <span style={{ 
+                                 <span style={{ 
                                   fontSize: "calc(8px * var(--text-scale))", 
                                   padding: "0.1rem 0.35rem", 
-                                  background: issue.type === "feature" ? "#4b2b6b" : "#6b2b2b", 
+                                  background: issue.type === "feature" ? "#4b2b6b" : issue.type === "bug" ? "#6b2b2b" : "#2b4b6b", 
                                   color: "#ffffff",
                                   fontFamily: "'DM Mono', monospace",
                                   fontWeight: "bold",
                                   textTransform: "uppercase"
                                 }}>
-                                  {issue.type === "feature" ? "FEAT" : "BUG"}
+                                  {issue.type === "feature" ? "FEAT" : issue.type === "bug" ? "BUG" : "ISSUE"}
                                 </span>
                               </div>
                               <div style={{ fontSize: "calc(12px * var(--text-scale))", color: issue.status === "done" ? "#10b981" : "#f2f2f2", fontWeight: 500 }}>{issue.title}</div>
@@ -2315,9 +2318,10 @@ export function Workspace() {
 
               {/* Issue Type Select */}
               <Field label="Type">
-                <select value={selectedIssue.type || "bug"} onChange={(event) => handleUpdateIssue(selectedIssue.id, { type: event.target.value as IssueType })} style={selectStyle}>
+                <select value={selectedIssue.type || "issue"} onChange={(event) => handleUpdateIssue(selectedIssue.id, { type: event.target.value as IssueType })} style={selectStyle}>
+                  <option value="issue">Issue</option>
                   <option value="bug">Bug</option>
-                  <option value="feature">eature</option>
+                  <option value="feature">Feature</option>
                 </select>
               </Field>
 

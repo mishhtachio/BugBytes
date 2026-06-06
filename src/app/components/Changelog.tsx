@@ -222,10 +222,10 @@ export function Changelog() {
                         key={idx}
                         style={{
                           fontFamily: "'Inter', sans-serif",
-                          fontWeight: 300,
+                          fontWeight: 400,
                           fontSize: "calc(12px * var(--text-scale))",
-                          lineHeight: 1.6,
-                          color: "#999999",
+                          lineHeight: 1.7,
+                          color: "#cccccc",
                           position: "relative",
                           paddingLeft: "1.25rem",
                         }}
