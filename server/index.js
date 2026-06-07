@@ -1379,6 +1379,81 @@ app.post('/api/workspaces/:slug/issues', authenticateToken, async (req, res) => 
   }
 });
 
+app.get('/api/projects/:projectId/issues/duplicates', authenticateToken, async (req, res) => {
+  const { projectId } = req.params;
+  const { title } = req.query;
+
+  if (!title || typeof title !== 'string' || !title.trim()) {
+    return res.json({ duplicates: [] });
+  }
+
+  try {
+    const project = await prisma.project.findUnique({ where: { id: projectId } });
+    if (!project) return res.status(404).json({ error: "Project not found" });
+
+    const isMember = project.creatorId === req.user.id ||
+      await prisma.projectMember.findUnique({
+        where: {
+          projectId_userId: {
+            projectId,
+            userId: req.user.id
+          }
+        }
+      });
+    if (!isMember) return res.status(403).json({ error: "You are not a member of this project" });
+
+    const activeIssues = await prisma.issue.findMany({
+      where: {
+        projectId,
+        status: { not: 'DONE' }
+      }
+    });
+
+    const STOP_WORDS = new Set(["the", "a", "an", "and", "or", "to", "of", "for", "in", "on", "with", "after"]);
+
+    const getWordTokens = (str) => {
+      return str
+        .toLowerCase()
+        .replace(/[^\w\s]/g, '')
+        .split(/\s+/)
+        .filter(word => word.length >= 3 && !STOP_WORDS.has(word));
+    };
+
+    const calculateSimilarity = (titleA, titleB) => {
+      const cleanA = titleA.toLowerCase().trim();
+      const cleanB = titleB.toLowerCase().trim();
+
+      const substringBoost = (cleanA.includes(cleanB) || cleanB.includes(cleanA)) ? 0.5 : 0.0;
+
+      const tokensA = getWordTokens(titleA);
+      const tokensB = getWordTokens(titleB);
+
+      let jaccard = 0;
+      if (tokensA.length > 0 && tokensB.length > 0) {
+        const setA = new Set(tokensA);
+        const setB = new Set(tokensB);
+        const intersection = [...setA].filter(x => setB.has(x)).length;
+        const union = new Set([...setA, ...setB]).size;
+        jaccard = intersection / union;
+      }
+
+      return Math.min(1.0, substringBoost + jaccard);
+    };
+
+    const duplicates = activeIssues
+      .map(issue => ({
+        issue: mapIssueToUi(issue),
+        similarity: calculateSimilarity(issue.title, title)
+      }))
+      .filter(item => item.similarity >= 0.25)
+      .sort((a, b) => b.similarity - a.similarity);
+
+    res.json({ duplicates });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.put('/api/issues/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
   const patch = req.body;

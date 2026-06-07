@@ -228,11 +228,31 @@ export function Workspace() {
 
   // Issues Creation & Filters states
   const [newTitle, setNewTitle] = useState("");
+  const [duplicateWarnings, setDuplicateWarnings] = useState<{ issue: Issue; similarity: number }[]>([]);
   const [commentText, setCommentText] = useState("");
   const [statusFilter, setStatusFilter] = useState<IssueStatus | "all">("all");
   const [priorityFilter, setPriorityFilter] = useState<IssuePriority | "all">("all");
   const [assigneeFilter, setAssigneeFilter] = useState<string | "all">("all");
   const [query, setQuery] = useState("");
+
+  // Real-time debounced check for duplicate issues
+  useEffect(() => {
+    if (!activeWs || activeProjId === "dashboard" || newTitle.trim().length < 4) {
+      setDuplicateWarnings([]);
+      return;
+    }
+
+    const delayDebounce = setTimeout(async () => {
+      try {
+        const data = await apiFetch(`/api/projects/${activeProjId}/issues/duplicates?title=${encodeURIComponent(newTitle.trim())}`);
+        setDuplicateWarnings(data.duplicates || []);
+      } catch (err) {
+        console.error("Failed to check duplicate issues:", err);
+      }
+    }, 500); // 500ms debounce to prevent spamming backend
+
+    return () => clearTimeout(delayDebounce);
+  }, [newTitle, activeProjId, activeWs]);
 
   // Loading indicator states
   const [loadingWorkspace, setLoadingWorkspace] = useState(false);
@@ -1996,6 +2016,23 @@ export function Workspace() {
                       </button>
                     </form>
                   </div>
+
+                  {duplicateWarnings.length > 0 && (
+                    <div style={{ padding: "0.75rem 1.5rem", background: "#1f0f00", borderBottom: "1px solid #ff9900", color: "#ff9900", display: "flex", flexDirection: "column", gap: "0.25rem", fontSize: "calc(11.5px * var(--text-scale))" }}>
+                      <span style={{ fontWeight: "bold" }}>⚠️ Potential Duplicate Issues Detected:</span>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
+                        {duplicateWarnings.map(item => (
+                          <button 
+                            key={item.issue.id} 
+                            onClick={() => setSelectedId(item.issue.id)}
+                            style={{ background: "transparent", border: "none", color: "#ff9900", cursor: "pointer", textDecoration: "underline", padding: 0, fontSize: "inherit", textAlign: "left" }}
+                          >
+                            {item.issue.issueKey} - {item.issue.title} ({item.issue.status.toUpperCase()}) [Similarity: {Math.round(item.similarity * 100)}%]
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
               {/* VIEW SWITCHER RENDERS */}
               {filteredIssues.length === 0 ? (
