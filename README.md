@@ -126,32 +126,5 @@ curl -X POST http://localhost:3000/api/webhooks/git \
 
 ---
 
-## 📂 Project Structure
-
-```
-├── server/
-│   ├── prisma/
-│   │   └── schema.prisma    # Prisma schema and database model configurations
-│   ├── index.js             # Express app server, routes, and webhooks
-│   ├── loadEnv.js           # Preload environment variables prior to modules hoisting
-│   ├── migrateJsonToPg.js   # Script to migrate JSON db to PostgreSQL
-│   └── package.json
-├── src/
-│   ├── app/
-│   │   ├── auth/
-│   │   │   └── AuthContext.tsx    # Clerk hooks mapper and apiFetch client
-│   │   └── components/
-│   │       ├── AuthPage.tsx       # Auth login and signup gate
-│   │       └── Workspace.tsx      # Main application panel, boards, and sidebar
-│   ├── styles/
-│   │   └── theme.css              # Cyberpunk CSS tokens & variable configurations
-│   ├── main.tsx
-│   └── vite-env.d.ts
-├── package.json
-└── README.md
-```
-
----
-
 ## 📄 License
 This project is open-source and available under the [MIT License](LICENSE).
