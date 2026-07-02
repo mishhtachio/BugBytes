@@ -1331,41 +1331,53 @@ app.post('/api/workspaces/:slug/issues', authenticateToken, async (req, res) => 
     }
 
 
-    const projectIssues = await prisma.issue.findMany({
-      where: { projectId: targetProjectId },
-      select: { issueNumber: true }
-    });
+    let newIssue;
+    const attempts = 5;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        const projectIssues = await prisma.issue.findMany({
+          where: { projectId: targetProjectId },
+          select: { issueNumber: true }
+        });
 
-    const nextNumber = projectIssues.length > 0
-      ? Math.max(...projectIssues.map(i => i.issueNumber)) + 1
-      : 1;
+        const nextNumber = projectIssues.length > 0
+          ? Math.max(...projectIssues.map(issue => issue.issueNumber)) + 1
+          : 1;
 
+        const prefix = project.key || "PROJ";
+        const issueKey = `${prefix}-${nextNumber}`;
 
-    const prefix = project.key || "PROJ";
-    const issueKey = `${prefix}-${nextNumber}`;
-
-    const newIssue = await prisma.issue.create({
-      data: {
-        issueKey,
-        issueNumber: nextNumber,
-        projectId: targetProjectId,
-        workspaceId: ws.id,
-        title: title.trim(),
-        description: description ? description.trim() : "",
-        status: mapIssueStatus(status || "todo"),
-        priority: mapIssuePriority(priority || "medium"),
-        type: mapIssueType(type || "issue"),
-        assigneeId: finalAssigneeId,
-        creatorId: req.user.id,
-        bugSeverity: bugSeverity || null,
-        bugEnv: bugEnv || null,
-        featureScope: featureScope || null,
-        storyPoints: storyPoints ? parseInt(storyPoints, 10) : null,
-        tags: tags || []
+        newIssue = await prisma.issue.create({
+          data: {
+            issueKey,
+            issueNumber: nextNumber,
+            projectId: targetProjectId,
+            workspaceId: ws.id,
+            title: title.trim(),
+            description: description ? description.trim() : "",
+            status: mapIssueStatus(status || "todo"),
+            priority: mapIssuePriority(priority || "medium"),
+            type: mapIssueType(type || "issue"),
+            assigneeId: finalAssigneeId,
+            creatorId: req.user.id,
+            bugSeverity: bugSeverity || null,
+            bugEnv: bugEnv || null,
+            featureScope: featureScope || null,
+            storyPoints: storyPoints ? parseInt(storyPoints, 10) : null,
+            tags: tags || []
+          }
+        });
+        break;
+      } catch (err) {
+        if (err.code === 'P2002' && i < attempts - 1) {
+          console.warn(`Concurrency conflict generating issueNumber, retrying... (Attempt ${i + 1}/${attempts})`);
+          continue;
+        }
+        throw err;
       }
-    });
+    }
 
-    await logProjectActivity(targetProjectId, req.user.id, `created issue ${issueKey}`);
+    await logProjectActivity(targetProjectId, req.user.id, `created issue ${newIssue.issueKey}`);
     res.json({ issue: mapIssueToUi(newIssue) });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1516,29 +1528,47 @@ app.put('/api/issues/:id', authenticateToken, async (req, res) => {
       }
     }
 
+    let updatedIssue;
     let projectChanged = false;
 
     if (patch.projectId !== undefined && patch.projectId !== issue.projectId) {
-      const targetProjIssues = await prisma.issue.findMany({
-        where: { projectId: patch.projectId },
-        select: { issueNumber: true }
-      });
-      const nextNumber = targetProjIssues.length > 0
-        ? Math.max(...targetProjIssues.map(i => i.issueNumber)) + 1
-        : 1;
+      const attempts = 5;
+      for (let i = 0; i < attempts; i++) {
+        try {
+          const targetProjIssues = await prisma.issue.findMany({
+            where: { projectId: patch.projectId },
+            select: { issueNumber: true }
+          });
+          const nextNumber = targetProjIssues.length > 0
+            ? Math.max(...targetProjIssues.map(issue => issue.issueNumber)) + 1
+            : 1;
 
-      const newIssueKey = `${project.key}-${nextNumber}`;
+          const newIssueKey = `${project.key}-${nextNumber}`;
 
-      data.projectId = patch.projectId;
-      data.issueNumber = nextNumber;
-      data.issueKey = newIssueKey;
+          data.projectId = patch.projectId;
+          data.issueNumber = nextNumber;
+          data.issueKey = newIssueKey;
+
+          updatedIssue = await prisma.issue.update({
+            where: { id },
+            data
+          });
+          break;
+        } catch (err) {
+          if (err.code === 'P2002' && i < attempts - 1) {
+            console.warn(`Concurrency conflict moving issue to project, retrying... (Attempt ${i + 1}/${attempts})`);
+            continue;
+          }
+          throw err;
+        }
+      }
       projectChanged = true;
+    } else {
+      updatedIssue = await prisma.issue.update({
+        where: { id },
+        data
+      });
     }
-
-    const updatedIssue = await prisma.issue.update({
-      where: { id },
-      data
-    });
 
     if (projectChanged) {
       const oldProj = await prisma.project.findUnique({ where: { id: issue.projectId } });
