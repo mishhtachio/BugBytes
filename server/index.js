@@ -756,6 +756,13 @@ app.post('/api/workspaces/:slug/projects', authenticateToken, async (req, res) =
 app.delete('/api/projects/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
   try {
+    const project = await prisma.project.findUnique({ where: { id } });
+    if (!project) return res.status(404).json({ error: "Project not found" });
+
+    if (project.creatorId !== req.user.id) {
+      return res.status(403).json({ error: "Only the project creator can delete this project" });
+    }
+
     await prisma.project.delete({ where: { id } });
     res.json({ success: true });
   } catch (err) {
