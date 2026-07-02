@@ -62,7 +62,6 @@ async function fetchClerkUser(userId) {
   }
 }
 
-// Helper maps to map strings to uppercase Prisma enums
 const mapWorkspaceRole = (role) => {
   if (!role) return 'MEMBER';
   const r = role.toUpperCase();
@@ -200,10 +199,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// Initialize Clerk Middleware
 app.use(clerkMiddleware());
 
-// Auth inspector middleware
 app.use((req, res, next) => {
   const auth = getAuth(req);
   console.log("getAuth(req) state:", { userId: auth?.userId, hasSession: !!auth?.sessionId });
@@ -220,7 +217,6 @@ async function authenticateToken(req, res, next) {
   try {
     let activeUser = await prisma.user.findUnique({ where: { id: auth.userId } });
 
-    // If user is not found by ID, let's fetch details from Clerk to get their real email!
     if (!activeUser) {
       let email = "";
       let name = "";
@@ -241,7 +237,6 @@ async function authenticateToken(req, res, next) {
         name = email.split('@')[0];
       }
 
-      // Now check if a placeholder user exists with this email!
       const placeholderUser = await prisma.user.findFirst({
         where: {
           email: email,
@@ -254,7 +249,6 @@ async function authenticateToken(req, res, next) {
         const oldId = placeholderUser.id;
 
         await prisma.$transaction(async (tx) => {
-          // Create the actual user first
           await tx.user.create({
             data: {
               id: auth.userId,
@@ -265,19 +259,16 @@ async function authenticateToken(req, res, next) {
             }
           });
 
-          // Update workspaceMembers references
           await tx.workspaceMember.updateMany({
             where: { userId: oldId },
             data: { userId: auth.userId }
           });
 
-          // Update projectMembers references
           await tx.projectMember.updateMany({
             where: { userId: oldId },
             data: { userId: auth.userId }
           });
 
-          // Update issues references
           await tx.issue.updateMany({
             where: { assigneeId: oldId },
             data: { assigneeId: auth.userId }
@@ -287,25 +278,21 @@ async function authenticateToken(req, res, next) {
             data: { creatorId: auth.userId }
           });
 
-          // Update comments references
           await tx.comment.updateMany({
             where: { userId: oldId },
             data: { userId: auth.userId }
           });
 
-          // Update personalTodos references
           await tx.personalTodo.updateMany({
             where: { userId: oldId },
             data: { userId: auth.userId }
           });
 
-          // Update projectActivities references
           await tx.projectActivity.updateMany({
             where: { userId: oldId },
             data: { userId: auth.userId }
           });
 
-          // Delete placeholder user
           await tx.user.delete({
             where: { id: oldId }
           });
@@ -313,7 +300,6 @@ async function authenticateToken(req, res, next) {
 
         activeUser = await prisma.user.findUnique({ where: { id: auth.userId } });
       } else {
-        // Create a brand new user
         activeUser = await prisma.user.create({
           data: {
             id: auth.userId,
@@ -326,7 +312,7 @@ async function authenticateToken(req, res, next) {
       }
     }
 
-    // If the user already exists, but their email is still the fallback email, let's try to update it!
+
     if (activeUser && activeUser.email.endsWith("@clerk.dev") && activeUser.email.startsWith("user-")) {
       const clerkUser = await fetchClerkUser(auth.userId);
       if (clerkUser) {
@@ -390,7 +376,7 @@ async function authenticateToken(req, res, next) {
       }
     }
 
-    // Sync name changes from Clerk claims to local database (if claims are present)
+
     const claims = auth.sessionClaims;
     if (activeUser && claims?.name && activeUser.name !== claims.name) {
       console.log(`Syncing name change from Clerk: ${activeUser.name} -> ${claims.name}`);
@@ -418,7 +404,7 @@ app.get('/api/auth/me', authenticateToken, (req, res) => {
   res.json({ user: { id: req.user.id, name: req.user.name, email: req.user.email, avatar: req.user.avatar } });
 });
 
-// Users list (teammates dropdown populate)
+
 app.get('/api/users', authenticateToken, async (req, res) => {
   try {
     const users = await prisma.user.findMany({
@@ -1278,7 +1264,7 @@ app.get('/api/workspaces/:slug/issues', authenticateToken, async (req, res) => {
     });
     const allowedProjectIds = allowedProjects.map(p => p.id);
 
-    // List newest first
+
     const issues = await prisma.issue.findMany({
       where: {
         workspaceId: ws.id,
@@ -1344,7 +1330,7 @@ app.post('/api/workspaces/:slug/issues', authenticateToken, async (req, res) => 
       return res.status(400).json({ error: "Assignee must be a member of the project" });
     }
 
-    // Get project issues to calculate next number project-wise!
+
     const projectIssues = await prisma.issue.findMany({
       where: { projectId: targetProjectId },
       select: { issueNumber: true }
@@ -1354,7 +1340,7 @@ app.post('/api/workspaces/:slug/issues', authenticateToken, async (req, res) => 
       ? Math.max(...projectIssues.map(i => i.issueNumber)) + 1
       : 1;
 
-    // Use the project's unique key as the prefix
+
     const prefix = project.key || "PROJ";
     const issueKey = `${prefix}-${nextNumber}`;
 
@@ -1580,6 +1566,26 @@ app.put('/api/issues/:id', authenticateToken, async (req, res) => {
 app.delete('/api/issues/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
   try {
+    const issue = await prisma.issue.findUnique({
+      where: { id },
+      include: { project: true }
+    });
+    if (!issue) return res.status(404).json({ error: "Issue not found" });
+
+    const isMember = issue.project.creatorId === req.user.id ||
+      await prisma.projectMember.findUnique({
+        where: {
+          projectId_userId: {
+            projectId: issue.projectId,
+            userId: req.user.id
+          }
+        }
+      });
+
+    if (!isMember) {
+      return res.status(403).json({ error: "You are not a member of the project containing this issue" });
+    }
+
     await prisma.issue.delete({ where: { id } });
     res.json({ success: true });
   } catch (err) {
@@ -1591,6 +1597,26 @@ app.delete('/api/issues/:id', authenticateToken, async (req, res) => {
 app.get('/api/issues/:id/comments', authenticateToken, async (req, res) => {
   const { id } = req.params;
   try {
+    const issue = await prisma.issue.findUnique({
+      where: { id },
+      include: { project: true }
+    });
+    if (!issue) return res.status(404).json({ error: "Issue not found" });
+
+    const isMember = issue.project.creatorId === req.user.id ||
+      await prisma.projectMember.findUnique({
+        where: {
+          projectId_userId: {
+            projectId: issue.projectId,
+            userId: req.user.id
+          }
+        }
+      });
+
+    if (!isMember) {
+      return res.status(403).json({ error: "You are not a member of the project containing this issue" });
+    }
+
     const comments = await prisma.comment.findMany({
       where: { issueId: id }
     });
@@ -1606,6 +1632,26 @@ app.post('/api/issues/:id/comments', authenticateToken, async (req, res) => {
   if (!content) return res.status(400).json({ error: "Comment content is required" });
 
   try {
+    const issue = await prisma.issue.findUnique({
+      where: { id },
+      include: { project: true }
+    });
+    if (!issue) return res.status(404).json({ error: "Issue not found" });
+
+    const isMember = issue.project.creatorId === req.user.id ||
+      await prisma.projectMember.findUnique({
+        where: {
+          projectId_userId: {
+            projectId: issue.projectId,
+            userId: req.user.id
+          }
+        }
+      });
+
+    if (!isMember) {
+      return res.status(403).json({ error: "You are not a member of the project containing this issue" });
+    }
+
     const newComment = await prisma.comment.create({
       data: {
         issueId: id,
@@ -1643,7 +1689,7 @@ app.delete('/api/comments/:commentId', authenticateToken, async (req, res) => {
   }
 });
 
-// Public Webhook for Git Integration (GitHub/GitLab)
+
 app.post('/api/webhooks/git', async (req, res) => {
   const event = req.headers['x-github-event'] || 'push';
   const logs = [];
@@ -1653,7 +1699,6 @@ app.post('/api/webhooks/git', async (req, res) => {
   const fixKeywords = /\b(fix|fixes|fixed|resolve|resolves|resolved|close|closes|closed)\b/i;
 
   try {
-    // Ensure system-git user exists
     let systemGit = await prisma.user.findUnique({ where: { id: 'system-git' } });
     if (!systemGit) {
       await prisma.user.create({
