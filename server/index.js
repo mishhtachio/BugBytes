@@ -488,6 +488,15 @@ app.post('/api/workspaces', authenticateToken, async (req, res) => {
 
   const slug = name.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_]+/g, '-');
 
+  if (!slug) {
+    return res.status(400).json({ error: "Workspace name must contain letters or numbers to generate a URL slug" });
+  }
+
+  const reservedWords = ['explore', 'join', 'members', 'projects', 'issues', 'new', 'settings'];
+  if (reservedWords.includes(slug)) {
+    return res.status(400).json({ error: `The name "${name}" results in a reserved routing keyword. Please choose another name.` });
+  }
+
   try {
     const existing = await prisma.workspace.findUnique({ where: { slug } });
     if (existing) {
