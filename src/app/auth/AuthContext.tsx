@@ -24,7 +24,7 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const API_BASE = "http://localhost:3000";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { isLoaded: authLoaded, isSignedIn, getToken, signOut } = useClerkAuth();

@@ -20,8 +20,37 @@ console.log("DATABASE_URL present:", !!process.env.DATABASE_URL);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors({ origin: '*' }));
+// Production CORS Setup
+const allowedOrigins = process.env.NODE_ENV === 'production'
+  ? [process.env.FRONTEND_URL]
+  : ['http://localhost:5173'];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, curl, or server-to-server)
+    if (!origin) return callback(null, true);
+    // Allow configured production origin and local development origins
+    if (allowedOrigins.includes(origin) || origin.startsWith('http://localhost:')) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'), false);
+  }
+}));
+
 app.use(express.json());
+
+// Intercept and sanitize 500 errors in production to avoid leaking database/Prisma details
+app.use((req, res, next) => {
+  const originalJson = res.json;
+  res.json = function (body) {
+    if (res.statusCode === 500 && body && body.error && process.env.NODE_ENV === 'production') {
+      console.error("[Internal Server Error Debug]:", body.error);
+      body.error = "Internal Server Error";
+    }
+    return originalJson.call(this, body);
+  };
+  next();
+});
 
 // Helper to decode JWT payload without verification
 function decodeJwtPayload(token) {
