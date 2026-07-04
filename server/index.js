@@ -7,6 +7,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
+import { rateLimit } from 'express-rate-limit';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,16 +21,13 @@ console.log("DATABASE_URL present:", !!process.env.DATABASE_URL);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Production CORS Setup
 const allowedOrigins = process.env.NODE_ENV === 'production'
   ? [process.env.FRONTEND_URL]
   : ['http://localhost:5173'];
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps, curl, or server-to-server)
     if (!origin) return callback(null, true);
-    // Allow configured production origin and local development origins
     if (allowedOrigins.includes(origin) || origin.startsWith('http://localhost:')) {
       return callback(null, true);
     }
@@ -39,7 +37,15 @@ app.use(cors({
 
 app.use(express.json());
 
-// Intercept and sanitize 500 errors in production to avoid leaking database/Prisma details
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 100,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many requests from this IP, please try again after 15 minutes.' }
+});
+app.use('/api/', apiLimiter);
+
 app.use((req, res, next) => {
   const originalJson = res.json;
   res.json = function (body) {
@@ -52,7 +58,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Helper to decode JWT payload without verification
 function decodeJwtPayload(token) {
   try {
     const parts = token.split('.');
@@ -236,7 +241,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Authentication Middleware via Clerk JWT session token verification
+// Clerk
 async function authenticateToken(req, res, next) {
   const auth = getAuth(req);
   if (!auth || !auth.userId) {
@@ -425,8 +430,6 @@ async function authenticateToken(req, res, next) {
     res.status(500).json({ error: "Internal server error during authentication" });
   }
 }
-
-// ---------------- API Routes ----------------
 
 // Fetch authenticated profile info
 app.get('/api/auth/me', authenticateToken, (req, res) => {
