@@ -12,7 +12,9 @@ import { rateLimit } from 'express-rate-limit';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const prisma = new PrismaClient();
+const globalForPrisma = global;
+const prisma = globalForPrisma.prisma || new PrismaClient();
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
 console.log("CLERK_PUBLISHABLE_KEY in index.js:", !!process.env.CLERK_PUBLISHABLE_KEY, "Length:", process.env.CLERK_PUBLISHABLE_KEY?.length);
 console.log("CLERK_SECRET_KEY in index.js:", !!process.env.CLERK_SECRET_KEY, "Length:", process.env.CLERK_SECRET_KEY?.length);
@@ -21,14 +23,21 @@ console.log("DATABASE_URL present:", !!process.env.DATABASE_URL);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const allowedOrigins = process.env.NODE_ENV === 'production'
-  ? [process.env.FRONTEND_URL]
-  : ['http://localhost:5173'];
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+  'http://localhost:5173'
+].filter(Boolean);
 
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin) || origin.startsWith('http://localhost:')) {
+    if (
+      process.env.NODE_ENV !== 'production' ||
+      allowedOrigins.includes(origin) ||
+      origin.startsWith('http://localhost:') ||
+      origin.endsWith('.vercel.app')
+    ) {
       return callback(null, true);
     }
     return callback(new Error('Not allowed by CORS'), false);
@@ -1937,7 +1946,11 @@ app.post('/api/webhooks/git', async (req, res) => {
   }
 });
 
-// Start Express Server
-app.listen(PORT, () => {
-  console.log(`🚀 BugBytes Backend running on http://localhost:${PORT}`);
-});
+// Start Express Server locally or when not in serverless runtime
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`🚀 BugBytes Backend running on http://localhost:${PORT}`);
+  });
+}
+
+export default app;
