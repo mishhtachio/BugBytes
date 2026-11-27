@@ -52,12 +52,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fetchToken();
   }, [isSignedIn, getToken]);
 
-  // Loading state gate
+  // Loading state gate with safety timeout
   useEffect(() => {
     if (authLoaded && userLoaded) {
       setLoading(false);
     }
   }, [authLoaded, userLoaded]);
+
+  useEffect(() => {
+    // Failsafe: don't block the UI indefinitely if Clerk auth check takes too long
+    const timeout = setTimeout(() => {
+      setLoading(false);
+    }, 2500);
+    return () => clearTimeout(timeout);
+  }, []);
 
   // Map Clerk user to BugBytes user structure
   const mappedUser = useMemo<BugBytesUser | null>(() => {

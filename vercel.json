@@ -3,30 +3,35 @@
   "services": {
     "app": {
       "root": ".",
-      "framework": "vite"
+      "framework": "vite",
+      "outputDirectory": "dist"
     },
     "server": {
       "root": "server",
-      "framework": "express"
+      "framework": "express",
+      "entrypoint": "index.js"
     }
   },
   "rewrites": [
     {
       "source": "/api/(.*)",
       "destination": {
-        "service": "server"
+        "service": "server",
+        "path": "/api/$1"
       }
     },
     {
       "source": "/api",
       "destination": {
-        "service": "server"
+        "service": "server",
+        "path": "/api"
       }
     },
     {
       "source": "/(.*)",
       "destination": {
-        "service": "app"
+        "service": "app",
+        "path": "/$1"
       }
     }
   ]
