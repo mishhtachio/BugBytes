@@ -21,6 +21,7 @@ console.log("CLERK_SECRET_KEY in index.js:", !!process.env.CLERK_SECRET_KEY, "Le
 console.log("DATABASE_URL present:", !!process.env.DATABASE_URL);
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 const allowedOrigins = [
